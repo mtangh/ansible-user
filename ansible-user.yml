@@ -48,7 +48,7 @@
                         if ansible_user_sshkey_renew|d('')|string|trim|length > 0
                         else '' }}"
       _am_keygenop: "{{ ansible_user_sshkeygen_opts
-                        if ansible_user_sshkeygen_opts|d(none) is not none
+                        if ansible_user_sshkeygen_opts|d('')|string|trim|length > 0
                         else '-t rsa -b 4096 -N ""' }}"
       _am_sudofile: "{{ ansible_user_sudo_sudoers_path
                         if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0
@@ -170,11 +170,6 @@
         name: "sudo"
         state: latest
  
-    - name: "ansible-user | Checking the '{{ _am_sudo_dir }}'."
-      stat: path="{{ _am_sudo_dir }}/{{ _am_username }}"
-      register: _am_sudod_st
-      ignore_errors: true
-  
     - name: "ansible-user | Create a ansible in the '{{ _am_sudo_dir }}'."
       blockinfile:
         path: "{{ _am_sudo_dir }}/{{ _am_username }}"
@@ -183,15 +178,13 @@
           {%  for _entry in _am_sudodefs|d([]) if _entry|d('')|string|trim|length > 0 %}
           Defaults:%{{ _am_username }} {{ _entry }}
           {%  endfor %}
-      when: _am_sudod_st.stat|d(none) is not none
-            and _am_sudod_st.stat.isdir|d(false) == true
+      when: _am_sudo_dir|d('')|is_dir == true
 
     - name: "ansible-user | Checking user in sudoers."
       shell: egrep "^%{{ _am_username }}[ \t]+" "{{ _am_sudofile }}"
       register: _am_issudoer
       ignore_errors: true
-      when: (_am_sudod_st.stat|d(none) is none
-             or _am_sudod_st.stat.isdir|d(false) == false)
+      when: not( _am_sudo_dir|d('')|is_dir == true )
 
     - name: "ansible-user | Adding the entry '{{ _am_username }}' group."
       lineinfile: 
