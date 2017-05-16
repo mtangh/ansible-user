@@ -17,7 +17,19 @@
       uid: 61426
       home: /home/ansible
       shell: /bin/bash
-      key: ansible-id_rsa
+      
+    anaible_user_passwd_file: /etc/passwd
+
+    ansible_user_sshkey_path: '.'
+    ansible_user_sshkey_basename: ansible-id_rsa
+    ansible_user_sshkey_renew:
+    ansible_user_sshkeygen_opts: "-t rsa -b 4096 -N ''"
+
+    ansible_user_sudo_sudoers_path: /etc/sudoers
+    ansible_user_sudo_sudoers_dir: /etc/sudoers.d
+    ansible_user_sudo_defaults:
+    - '!requiretty'
+    - 'env_keep += SSH_AUTH_SOCK'
 
   tasks:
 
@@ -29,11 +41,21 @@
       _am_userhome: "{{ ansible_user.home|d('/home/anaible') }}"
       _am_shellcmd: "{{ ansible_user.shell|d('/bin/bash') }}"
       _am_userdesc: "{{ ansible_user.comment|d('Ansible Management User') }}"
-      _am_key_file: "{{ anaible_manager.key|d('ansible-id_rsa') }}"
-      _am_etc_pswd: "{{ anaible_manager_passwd_file|d('/etc/passwd') }}"
+      _am_etc_pswd: "{{ anaible_user_passwd_file|d('/etc/passwd') }}"
+      _am_key_path: "{{ ansible_user_sshkey_path|d(playbook_dir) }}"
+      _am_key_file: "{{ anaible_user_sshkey_basename|d('ansible-id_rsa') }}"
+      _am_keyrenew: "{{ 'yes'
+                        if ansible_user_sshkey_renew|d('')|string|trim|length > 0
+                        else '' }}"
       _am_keygenop: "{{ ansible_user_sshkeygen_opts
                         if ansible_user_sshkeygen_opts|d(none) is not none
-                        else '-t rsa -b 4096 -N ""' }}"
+                        else "-t rsa -b 4096 -N ''" }}"
+      _am_sudofile: "{{ ansible_user_sudo_sudoers_path
+                        if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0
+                        else '/etc/sudoers' }}"
+      _am_sudofile: "{{ ansible_user_sudo_sudoers_dir
+                        if ansible_user_sudo_sudoers_dir|d('')|string|trim|length > 0
+                        else '/etc/sudoers.d' }}"
       _am_sudodefs: "{{ ansible_user_sudo_defaults
                         if ansible_user_sudo_defaults|d(none) is not none
                         and ansible_user_sudo_defaults|d(none) is not none
@@ -45,9 +67,14 @@
 
     - name: "ansible-user | Create a ssh key."
       shell: |
-        [ -f "{{ _am_key_file }}" ] &&
-        [ -n "$(type -P ssh-keygen)" ] &&
-        ssh-keygen -C "ansible, $(date)" {{ _am_keygenop }} -f "{{ _am_key_file }}"
+        if [ -n "{{ _am_keyrenew }}" ]
+        then rm -f "{{ _am_key_path }}/{{ _am_key_file }}"
+        fi
+        if [ -n "$(type -P ssh-keygen)" ] &&
+           [ -f "{{ _am_key_path }}/{{ _am_key_file }}" ]
+        then ssh-keygen -C "ansible, $(date)" {{ _am_keygenop }} -f "{{ _am_key_path }}/{{ _am_key_file }}"
+        else exit 1
+        fi
 
     when: inventory_hostname|d('')|regexp('^(localhost|127\.0\.0\.1)$')
     tags:
@@ -58,7 +85,7 @@
   
     - name: "ansible-user | Finding free uid between {{ _am_mini_num }} and {{ _am_maxi_num }}"
       shell: |
-        cat {{ _am_uid_file }} |
+        cat "{{ _am_pswdfile }}" |
         awk -F: '$3 >= {{ _am_mini_num }} && $3 < {{ _am_maxi_num }} {print($3);};' |
         sort -u |cat -n |
         awk '($2 - {{ _am_mini_num }} + 1) > $1 {print($2);}' |
@@ -78,7 +105,7 @@
       ignore_errors: true
 
     vars:
-      _am_uid_file: "{{ _am_etc_pswd }}"
+      _am_pswdfile: "{{ _am_etc_pswd }}"
       _am_mini_num: "{{ _am_user_uid }}"
       _am_maxi_num: "{{ _am_user_uid|int + 99 }}"
     tags:
@@ -107,10 +134,10 @@
  
     vars:
       _am_free_uid: "{{ _am_r_minuid.stdout_line
-                        if _am_r_minuid.stdout_line|d('')|length >0
+                        if _am_r_minuid.stdout_line|d('')|string|trim|length > 0
                         else _am_user_uid }}"
       _am_new_pswd: "{{ _am_r_passwd.stdout_line
-                        if _am_r_passwd.stdout_line|d('')|length >0
+                        if _am_r_passwd.stdout_line|d('')|string|trim|length > 0
                         else none }}"
     tags:
     - ansible-user-create-user
@@ -128,13 +155,11 @@
     - name: "ansible-user | Setup authorized_keys"
       authorized_key:
         user: "{{ _am_username }}"
-        key: "{{ _am_key_data }}"
+        key: "{{ lookup('file',('%s/%s.pub'|format(
+                 _am_key_path,_am_key_file))) }}"
         state: present
-      when: _am_key_data|d('')|length > 0
 
-    vars:
-      _am_key_data: "{{ lookup('file',('%s.pub'|format(_am_key_file))) }}"
-    when: _am_key_file|d('')|length > 0
+    when: _am_key_file|d('')|string|trim|length > 0
     tags:
     - ansible-user-authorized-keys
 
@@ -176,7 +201,8 @@
         insertafter: "^(#|)[ ]*%wheel[ \t]+.*"
         line: |
           %{{ _am_username }}\tALL=(ALL)\tNOPASSWD: ALL
-          {%  for _entry in _am_sudodefs|d([]) if _entry|d('')|string|trim|length > 0 %}
+          {%  for _entry in _am_sudodefs|d([])
+                  if _entry|d('')|string|trim|length > 0 %}
           Defaults:%{{ _am_username }} {{ _entry }}
           {%  endfor %}
       when: _am_issudoer|d(none) is not none
@@ -184,9 +210,6 @@
             and (_am_lfresult|d(none) is none
               or _am_lfresult|success == false)
 
-    vars:
-      _am_sudofile: /etc/sudoers
-      _am_sudo_dir: /etc/sudoers.d
     tags:
     - ansible-user-sudoers
 
