@@ -49,7 +49,7 @@
                         else '' }}"
       _am_keygenop: "{{ ansible_user_sshkeygen_opts
                         if ansible_user_sshkeygen_opts|d(none) is not none
-                        else "-t rsa -b 4096 -N ''" }}"
+                        else '-t rsa -b 4096 -N ""' }}"
       _am_sudofile: "{{ ansible_user_sudo_sudoers_path
                         if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0
                         else '/etc/sudoers' }}"
