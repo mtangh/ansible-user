@@ -44,22 +44,21 @@
       _am_etc_pswd: "{{ anaible_user_passwd_file|d('/etc/passwd') }}"
       _am_key_path: "{{ ansible_user_sshkey_path|d(playbook_dir) }}"
       _am_key_file: "{{ anaible_user_sshkey_basename|d('ansible-id_rsa') }}"
-      _am_keyrenew: "{{ 'yes'
-                        if ansible_user_sshkey_renew|d('')|string|trim|length > 0
-                        else '' }}"
-      _am_keygenop: "{{ ansible_user_sshkeygen_opts
-                        if ansible_user_sshkeygen_opts|d('')|string|trim|length > 0
-                        else '-t rsa -b 4096 -N ""' }}"
-      _am_sudofile: "{{ ansible_user_sudo_sudoers_path
-                        if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0
-                        else '/etc/sudoers' }}"
-      _am_sudofile: "{{ ansible_user_sudo_sudoers_dir
-                        if ansible_user_sudo_sudoers_dir|d('')|string|trim|length > 0
-                        else '/etc/sudoers.d' }}"
-      _am_sudodefs: "{{ ansible_user_sudo_defaults
-                        if ansible_user_sudo_defaults|d(none) is not none
-                        and ansible_user_sudo_defaults|d(none) is not none
-                        else ['!requiretty','env_keep += SSH_AUTH_SOCK'] }}"
+      _am_keyrenew: {% if ansible_user_sshkey_renew|d('')|string|trim|length > 0
+                       %}yes{% else %}{% endif %}
+      _am_keygenop: {% if ansible_user_sshkeygen_opts|d('')|string|trim|length > 0 %}{{
+                      ansible_user_sshkeygen_opts
+                    }}{% else %}-t rsa -b 4096 -N ''{% endif %}
+      _am_sudofile: {% if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0 %}{{
+                      ansible_user_sudo_sudoers_path
+                    }}{% else %}/etc/sudoers{% endif %}
+      _am_sudofile: {% if ansible_user_sudo_sudoers_dir|d('')|string|trim|length > 0 %}{{
+                      ansible_user_sudo_sudoers_dir
+                    }}{% else %}/etc/sudoers.d{% endif %}
+      _am_sudodefs: {% if ansible_user_sudo_defaults|d(none) is not none
+                       and ansible_user_sudo_defaults|d(none) is iterable %}{{
+                      ansible_user_sudo_defaults
+                    }}{% else %}{{ ['!requiretty','env_keep += SSH_AUTH_SOCK'] }}{% endif %}
     tags:
     - always
 
