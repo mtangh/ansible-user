@@ -3,31 +3,31 @@
 # vim: set ff=unix ts=2 sw=2 sts=2 et : This line is VIM modeline
 
 - hosts: all
-  become: "{{ ansible_user_using_become|d('yes') }}"
-  gather_facts: "{{ ansible_user_using_gather_facts|d('yes') }}"
+  become: "{{ am_user_using_become|d('yes') }}"
+  gather_facts: "{{ am_user_using_gather_facts|d('yes') }}"
 
   tags:
   - ansible-user
 
   vars:
 
-    ansible_user:
+    am_user:
       name: ansible
       passwd:
       uid: 61426
       home: /home/ansible
       shell: /bin/bash
 
-    anaible_user_passwd_file: /etc/passwd
+    am_user_passwd_file: /etc/passwd
 
-    ansible_user_sshkey_path: "{{ '%s/.ssh'|format(lookup('env','HOME')) }}"
-    ansible_user_sshkey_basename: ansible-id_rsa
-    ansible_user_sshkey_renew: ''
-    ansible_user_sshkeygen_opts: "-t rsa -b 4096 -N ''"
+    am_user_sshkey_path: "{{ '%s/.ssh'|format(lookup('env','HOME')) }}"
+    am_user_sshkey_basename: ansible-id_rsa
+    am_user_sshkey_renew: ''
+    am_user_sshkeygen_opts: "-t rsa -b 4096 -N ''"
 
-    ansible_user_sudo_sudoers_path: /etc/sudoers
-    ansible_user_sudo_sudoers_dir: /etc/sudoers.d
-    ansible_user_sudo_defaults:
+    am_user_sudo_sudoers_path: /etc/sudoers
+    am_user_sudo_sudoers_dir: /etc/sudoers.d
+    am_user_sudo_defaults:
     - '!requiretty'
     - 'env_keep += SSH_AUTH_SOCK'
 
@@ -35,30 +35,30 @@
 
   - name: "ansible_user | Set facts."
     set_fact:
-      _am_username: "{{ ansible_user.name|d('ansible') }}"
-      _am_password: "{{ ansible_user.passwd|d(none) }}"
-      _am_user_uid: "{{ ansible_user.uid|d(61426) }}"
-      _am_userhome: "{{ ansible_user.home|d('/home/anaible') }}"
-      _am_shellcmd: "{{ ansible_user.shell|d('/bin/bash') }}"
-      _am_userdesc: "{{ ansible_user.comment|d('Ansible Management User') }}"
-      _am_etc_pswd: "{{ anaible_user_passwd_file|d('/etc/passwd') }}"
-      _am_key_path: "{{ ansible_user_sshkey_path|d(playbook_dir) }}"
-      _am_key_file: "{{ anaible_user_sshkey_basename|d('ansible-id_rsa') }}"
-      _am_keyrenew: "{% if ansible_user_sshkey_renew|d('')|string|trim|length > 0 %}{{
+      _am_username: "{{ am_user.name|d('ansible') }}"
+      _am_password: "{{ am_user.passwd|d(none) }}"
+      _am_user_uid: "{{ am_user.uid|d(61426) }}"
+      _am_userhome: "{{ am_user.home|d('/home/anaible') }}"
+      _am_shellcmd: "{{ am_user.shell|d('/bin/bash') }}"
+      _am_userdesc: "{{ am_user.comment|d('Ansible Management User') }}"
+      _am_etc_pswd: "{{ am_user_passwd_file|d('/etc/passwd') }}"
+      _am_key_path: "{{ am_user_sshkey_path|d(playbook_dir) }}"
+      _am_key_file: "{{ am_user_sshkey_basename|d('ansible-id_rsa') }}"
+      _am_keyrenew: "{% if am_user_sshkey_renew|d('')|string|trim|length > 0 %}{{
                       'yes'
                     }}{% else %}{{ '' }}{% endif %}"
-      _am_keygenop: "{% if ansible_user_sshkeygen_opts|d('')|string|trim|length > 0 %}{{
-                      ansible_user_sshkeygen_opts
+      _am_keygenop: "{% if am_user_sshkeygen_opts|d('')|string|trim|length > 0 %}{{
+                      am_user_sshkeygen_opts
                     }}{% else %}-t rsa -b 4096 -N ''{% endif %}"
-      _am_sudofile: "{% if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0 %}{{
-                      ansible_user_sudo_sudoers_path
+      _am_sudofile: "{% if am_user_sudo_sudoers_path|d('')|string|trim|length > 0 %}{{
+                      am_user_sudo_sudoers_path
                     }}{% else %}/etc/sudoers{% endif %}"
-      _am_sudo_dir: "{% if ansible_user_sudo_sudoers_dir|d('')|string|trim|length > 0 %}{{
-                      ansible_user_sudo_sudoers_dir
+      _am_sudo_dir: "{% if am_user_sudo_sudoers_dir|d('')|string|trim|length > 0 %}{{
+                      am_user_sudo_sudoers_dir
                     }}{% else %}/etc/sudoers.d{% endif %}"
-      _am_sudodefs: "{%- if ansible_user_sudo_defaults|d(none) is not none
-                         and ansible_user_sudo_defaults|d(none) is iterable %}{{
-                      ansible_user_sudo_defaults
+      _am_sudodefs: "{%- if am_user_sudo_defaults|d(none) is not none
+                         and am_user_sudo_defaults|d(none) is iterable %}{{
+                      am_user_sudo_defaults
                     }}{% else %}{{
                       ['!requiretty','env_keep += SSH_AUTH_SOCK']
                     }}{% endif %}"
@@ -79,7 +79,7 @@
           cd "{{ _am_key_path }}" &&
           rm -f "{{ _am_key_file }}" "{{ _am_key_file }}.pub"; }
         if [ ! -f "{{ _am_key_path }}/{{ _am_key_file }}" ]
-        then ssh-keygen -C "ansible, $(date)" {{ _am_keygenop }} -f "{{ _am_key_path }}/{{ _am_key_file }}"
+        then ssh-keygen -C "ansible, $(LANG=C date)" {{ _am_keygenop }} -f "{{ _am_key_path }}/{{ _am_key_file }}"
         else echo "Privatre key file '{{ _am_key_path }}/{{ _am_key_file }}' was found."
         fi
       when: _am_keyrenew|d('')|string|trim|length > 0
@@ -88,7 +88,7 @@
     - name: "ansible_user | Change the Permission."
       file:
         path: "{{ item }}"
-        state: touch
+        state: file
         mode: "0600"
       with_items:
       - "{{ _am_key_path }}/{{ _am_key_file }}"
@@ -156,7 +156,7 @@
                         else _am_user_uid }}"
       _am_new_pswd: "{{ _am_r_passwd.stdout_line
                         if _am_r_passwd.stdout_line|d('')|string|trim|length > 0
-                        else none }}"
+                        else (none if ansible_check_mode|d(false) == false else 'ansible') }}"
     tags:
     - ansible-user-create-user
 
@@ -173,11 +173,13 @@
     - name: "ansible_user | Setup authorized_keys"
       authorized_key:
         user: "{{ _am_username }}"
-        key: "{{ lookup('file',('%s/%s.pub'|format(
-                 _am_key_path,_am_key_file))) }}"
+        path: "{{ _am_pubkey_f }}"
+        key: "{{ lookup('file',_am_pubkey_f) }}"
         state: present
 
     when: _am_key_file|d('')|string|trim|length > 0
+    vars:
+      _am_pubkey_f: "{{ '%s/%s.pub'|format(_am_key_path,_am_key_file) }}"
     tags:
     - ansible-user-authorized-keys
 
@@ -191,6 +193,7 @@
     - name: "ansible_user | Create a ansible in the '{{ _am_sudo_dir }}'."
       blockinfile:
         path: "{{ _am_sudo_dir }}/{{ _am_username }}"
+        create: yes
         block: |
           %{{ _am_username }}\tALL=(ALL)\tNOPASSWD: ALL
           {%  for _entry in _am_sudodefs|d([]) if _entry|d('')|string|trim|length > 0 %}

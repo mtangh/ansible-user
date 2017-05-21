@@ -10,12 +10,12 @@ BASE="${THIS%%.*}"
 ANSIBLE_USER_SSH_HOST="${ANSIBLE_USER_SSH_HOST:-}"
 ANSIBLE_USER_USERNAME="${ANSIBLE_USER_USERNAME:-}"
 ANSIBLE_USER_KEY_FILE="${ANSIBLE_USER_KEY_FILE:-}"
+ANSIBLE_USER_DEBUGRUN="${ANSIBLE_USER_DEBUGRUN:-}"
 
 # Shell script local Variables
 _au_exec_cmd=""
 _au_play_cmd="$(type -P ansible-playbook)"
 _au_playopts=""
-_au_work_dir="${CDIR}/work"
 _au_tmphosts="/tmp/.${BASE}-hosts-"$(mktemp -u XXXXXXXXXXXX)".txt"
 
 # Check command
@@ -51,11 +51,14 @@ _USAGE_
 
 # Function: _cleanup
 _cleanup() {
- : && {
-   [ -e "${_au_tmphosts}" ] &&
-   rm -f "${_au_tmphosts}"
- } 1>/dev/null 2>&1
- return 0
+  [ -z "${ANSIBLE_USER_DEBUGRUN}" ] || {
+    echo rm -f "${_au_tmphosts}"
+  }
+  [ -z "${ANSIBLE_USER_DEBUGRUN}" ] && {
+    [ -e "${_au_tmphosts}" ] &&
+    rm -f "${_au_tmphosts}"
+  } 1>/dev/null 2>&1
+  return 0
 }
 
 # Function: inti
@@ -80,9 +83,10 @@ _au_init() {
   _au_playopts="${_au_playopts:+$_au_playopts }-i $_au_tmphosts"
   _au_playopts="${_au_playopts:+$_au_playopts }-c local --flush-cache"
   _au_playopts="${_au_playopts:+$_au_playopts }-t ${BASE}-ssh-keygen"
-  _au_playopts="${_au_playopts:+$_au_playopts }-e ansible_user_using_become=no"
-  _au_playopts="${_au_playopts:+$_au_playopts }-e ansible_user_using_gather_facts=no"
-  _au_playopts="${_au_playopts:+$_au_playopts }-e ansible_user_sshkey_renew=${_au_keyrenew:-}"
+  _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_become=no"
+  _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_gather_facts=no"
+  _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_sshkey_renew=${_au_keyrenew:-}"
+  _au_playopts="${_au_playopts:+$_au_playopts }${ANSIBLE_USER_DEBUGRUN:+-C -vvvv}"
   # end
   return 0
 }
@@ -149,11 +153,14 @@ _au_create() {
   _au_playopts="${_au_playopts:+$_au_playopts }-i $_au_tmphosts"
   _au_playopts="${_au_playopts:+$_au_playopts }${_au_connmode:+-c $_au_connmode}"
   _au_playopts="${_au_playopts:+$_au_playopts }${_au_login_id:+-K -b -u $_au_login_id}"
-  _au_playopts="${_au_playopts:+$_au_playopts }${_au_pkeyfile:+--key-file=$_au_pkeyfile}"
-  _au_playopts="${_au_playopts:+$_au_playopts }${_au_pkeyfile:--k}"
+  [ -z "${_au_pkeyfile}" ] ||
+  _au_playopts="${_au_playopts:+$_au_playopts }--key-file=${_au_pkeyfile}"
+  [ -n "${_au_pkeyfile}" ] ||
+  _au_playopts="${_au_playopts:+$_au_playopts }-k"
   _au_playopts="${_au_playopts:+$_au_playopts }${_au_time_out:+-T $_au_time_out}"
-  _au_playopts="${_au_playopts:+$_au_playopts }-e ansible_user_using_become=yes"
-  _au_playopts="${_au_playopts:+$_au_playopts }-e ansible_user_using_gather_facts=yes"
+  _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_become=yes"
+  _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_gather_facts=yes"
+  _au_playopts="${_au_playopts:+$_au_playopts }${ANSIBLE_USER_DEBUGRUN:+-C -vvvv}"
   # end
   return 0
 }
@@ -183,11 +190,6 @@ _au_exec_cmd="${1}"; shift
 # Shell Options
 set -u
 
-# Create a workdir if not exists
-[ -d "${_au_work_dir}" ] || {
-  mkdir -p "${_au_work_dir}"
-}
-
 # Exec command
 case "$_au_exec_cmd" in
 init|create|update)
@@ -197,6 +199,11 @@ init|create|update)
   _usage
   ;;
 esac
+
+# debug
+[ -z "${ANSIBLE_USER_DEBUGRUN}" ] || {
+  echo $_au_play_cmd $_au_playopts "${CDIR}/${BASE}.yml"
+}
 
 # play
 $_au_play_cmd $_au_playopts "${CDIR}/${BASE}.yml"
