@@ -173,7 +173,7 @@
     - name: "ansible_user | Setup authorized_keys"
       authorized_key:
         user: "{{ _am_username }}"
-        path: "{{ _am_pubkey_f }}"
+        path: "{{ '%s/.ssh/authorized_keys'|format(_am_userhome) }}"
         key: "{{ lookup('file',_am_pubkey_f) }}"
         state: present
 
@@ -195,7 +195,7 @@
         path: "{{ _am_sudo_dir }}/{{ _am_username }}"
         create: yes
         block: |
-          %{{ _am_username }}\tALL=(ALL)\tNOPASSWD: ALL
+          %{{ _am_username }} ALL=(ALL) NOPASSWD: ALL
           {%  for _entry in _am_sudodefs|d([]) if _entry|d('')|string|trim|length > 0 %}
           Defaults:%{{ _am_username }} {{ _entry }}
           {%  endfor %}
@@ -214,7 +214,7 @@
         backup: yes
         insertafter: "^(#|)[ ]*%wheel[ \t]+.*"
         line: |
-          %{{ _am_username }}\tALL=(ALL)\tNOPASSWD: ALL
+          %{{ _am_username }} ALL=(ALL) NOPASSWD: ALL
           {%  for _entry in _am_sudodefs|d([])
                   if _entry|d('')|string|trim|length > 0 %}
           Defaults:%{{ _am_username }} {{ _entry }}
