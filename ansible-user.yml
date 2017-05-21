@@ -3,8 +3,8 @@
 # vim: set ff=unix ts=2 sw=2 sts=2 et : This line is VIM modeline
 
 - hosts: all
-  become: yes
-  gather_facts: yes
+  become: "{{ ansible_user_using_become|d('yes') }}"
+  gather_facts: "{{ ansible_user_using_gather_facts|d('yes') }}"
 
   tags:
   - ansible-user
@@ -13,16 +13,16 @@
 
     ansible_user:
       name: ansible
-      passwd: 
+      passwd:
       uid: 61426
       home: /home/ansible
       shell: /bin/bash
-      
+
     anaible_user_passwd_file: /etc/passwd
 
-    ansible_user_sshkey_path: '.'
+    ansible_user_sshkey_path: "{{ '%s/.ssh'|format(lookup('env','HOME')) }}"
     ansible_user_sshkey_basename: ansible-id_rsa
-    ansible_user_sshkey_renew:
+    ansible_user_sshkey_renew: ''
     ansible_user_sshkeygen_opts: "-t rsa -b 4096 -N ''"
 
     ansible_user_sudo_sudoers_path: /etc/sudoers
@@ -33,7 +33,7 @@
 
   tasks:
 
-  - name: "ansible-user | Set facts."
+  - name: "ansible_user | Set facts."
     set_fact:
       _am_username: "{{ ansible_user.name|d('ansible') }}"
       _am_password: "{{ ansible_user.passwd|d(none) }}"
@@ -44,49 +44,64 @@
       _am_etc_pswd: "{{ anaible_user_passwd_file|d('/etc/passwd') }}"
       _am_key_path: "{{ ansible_user_sshkey_path|d(playbook_dir) }}"
       _am_key_file: "{{ anaible_user_sshkey_basename|d('ansible-id_rsa') }}"
-      _am_keyrenew: |
-        {% if ansible_user_sshkey_renew|d('')|string|trim|length > 0 -%}yes{% endif %}
-      _am_keygenop: |
-        {% if ansible_user_sshkeygen_opts|d('')|string|trim|length > 0 %}{{
-          ansible_user_sshkeygen_opts
-        }}{% else %}-t rsa -b 4096 -N ''{% endif %}
-      _am_sudofile: |
-        {% if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0 %}{{
-          ansible_user_sudo_sudoers_path
-        }}{% else %}/etc/sudoers{% endif %}
-      _am_sudofile: |
-        {% if ansible_user_sudo_sudoers_dir|d('')|string|trim|length > 0 %}{{
-          ansible_user_sudo_sudoers_dir
-        }}{% else %}/etc/sudoers.d{% endif %}
-      _am_sudodefs: |
-        {% if ansible_user_sudo_defaults|d(none) is not none
-           and ansible_user_sudo_defaults|d(none) is iterable %}{{
-          ansible_user_sudo_defaults
-        }}{% else %}{{ ['!requiretty','env_keep += SSH_AUTH_SOCK'] }}{% endif %}
+      _am_keyrenew: "{% if ansible_user_sshkey_renew|d('')|string|trim|length > 0 %}{{
+                      'yes'
+                    }}{% else %}{{ '' }}{% endif %}"
+      _am_keygenop: "{% if ansible_user_sshkeygen_opts|d('')|string|trim|length > 0 %}{{
+                      ansible_user_sshkeygen_opts
+                    }}{% else %}-t rsa -b 4096 -N ''{% endif %}"
+      _am_sudofile: "{% if ansible_user_sudo_sudoers_path|d('')|string|trim|length > 0 %}{{
+                      ansible_user_sudo_sudoers_path
+                    }}{% else %}/etc/sudoers{% endif %}"
+      _am_sudo_dir: "{% if ansible_user_sudo_sudoers_dir|d('')|string|trim|length > 0 %}{{
+                      ansible_user_sudo_sudoers_dir
+                    }}{% else %}/etc/sudoers.d{% endif %}"
+      _am_sudodefs: "{%- if ansible_user_sudo_defaults|d(none) is not none
+                         and ansible_user_sudo_defaults|d(none) is iterable %}{{
+                      ansible_user_sudo_defaults
+                    }}{% else %}{{
+                      ['!requiretty','env_keep += SSH_AUTH_SOCK']
+                    }}{% endif %}"
     tags:
     - always
 
   - block:
 
-    - name: "ansible-user | Create a ssh key."
-      shell: |
-        if [ -n "{{ _am_keyrenew }}" ]
-        then rm -f "{{ _am_key_path }}/{{ _am_key_file }}"
-        fi
-        if [ -n "$(type -P ssh-keygen)" ] &&
-           [ -f "{{ _am_key_path }}/{{ _am_key_file }}" ]
-        then ssh-keygen -C "ansible, $(date)" {{ _am_keygenop }} -f "{{ _am_key_path }}/{{ _am_key_file }}"
-        else exit 1
-        fi
+    - name: "ansible_user | Stat ssh key."
+      stat: path="{{ _am_key_path }}/{{ _am_key_file }}"
+      register: _am_p_key_st
 
-    when: inventory_hostname|d('')|regexp('^(localhost|127\.0\.0\.1)$')
+    - name: "ansible_user | Create a ssh key."
+      shell: |
+        [ -z "$(type -P ssh-keygen)" ] && {
+          exit 1; }
+        [ -n "{{ _am_keyrenew|d('') }}" ] && {
+          cd "{{ _am_key_path }}" &&
+          rm -f "{{ _am_key_file }}" "{{ _am_key_file }}.pub"; }
+        if [ ! -f "{{ _am_key_path }}/{{ _am_key_file }}" ]
+        then ssh-keygen -C "ansible, $(date)" {{ _am_keygenop }} -f "{{ _am_key_path }}/{{ _am_key_file }}"
+        else echo "Privatre key file '{{ _am_key_path }}/{{ _am_key_file }}' was found."
+        fi
+      when: _am_keyrenew|d('')|string|trim|length > 0
+            or (_am_p_key_st.stat|d(none) is none or _am_p_key_st.stat.exists == false)
+
+    - name: "ansible_user | Change the Permission."
+      file:
+        path: "{{ item }}"
+        state: touch
+        mode: "0600"
+      with_items:
+      - "{{ _am_key_path }}/{{ _am_key_file }}"
+      - "{{ _am_key_path }}/{{ _am_key_file }}.pub"
+
+    when: inventory_hostname|d('')|match('^(localhost|127\.0\.0\.1)$')
     tags:
     - tagged
     - ansible-user-ssh-keygen
 
   - block:
-  
-    - name: "ansible-user | Finding free uid between {{ _am_mini_num }} and {{ _am_maxi_num }}"
+
+    - name: "ansible_user | Finding free uid between {{ _am_mini_num }} and {{ _am_maxi_num }}"
       shell: |
         cat "{{ _am_pswdfile }}" |
         awk -F: '$3 >= {{ _am_mini_num }} && $3 < {{ _am_maxi_num }} {print($3);};' |
@@ -97,7 +112,7 @@
       changed_when: false
       ignore_errors: true
 
-    - name: "ansible-user | Generate passwod for new user '{{ _am_username }}'."
+    - name: "ansible_user | Generate passwod for new user '{{ _am_username }}'."
       shell: |
         if [ -n "{{ _am_password }}" ]
         then echo "{{ _am_password }}"
@@ -116,25 +131,25 @@
 
   - block:
 
-    - name: "ansible-user | Create a group '{{ _am_username }}'."
+    - name: "ansible_user | Create a group '{{ _am_username }}'."
       group:
         name: "{{ _am_username }}"
         gid: "{{ _am_free_uid }}"
         state: present
 
-    - name: "ansible-user | Create user '{{ _am_username }}'."
-      user: 
+    - name: "ansible_user | Create user '{{ _am_username }}'."
+      user:
         name: "{{ _am_username }}"
         uid: "{{ _am_free_uid }}"
         group: "{{ _am_username }}"
         groups: "{{ _am_username }}"
         home: "{{ _am_userhome }}"
-        shell: "{{ _am_shellcmd }}" 
+        shell: "{{ _am_shellcmd }}"
         createhome: yes
         comment: "{{ _am_userdesc }}"
         password: "{{ _am_new_pswd|password_hash('sha512') }}"
         state: present
- 
+
     vars:
       _am_free_uid: "{{ _am_r_minuid.stdout_line
                         if _am_r_minuid.stdout_line|d('')|string|trim|length > 0
@@ -146,16 +161,16 @@
     - ansible-user-create-user
 
   - block:
-  
-    - name: "ansible-user | Crate a '{{ _am_userhome }}/.ssh' directory."
+
+    - name: "ansible_user | Crate a '{{ _am_userhome }}/.ssh' directory."
       file:
         path: "{{ _am_userhome }}/.ssh"
         state: directory
         owner: "{{ _am_username }}"
         group: "{{ _am_username }}"
         mode: "0700"
-   
-    - name: "ansible-user | Setup authorized_keys"
+
+    - name: "ansible_user | Setup authorized_keys"
       authorized_key:
         user: "{{ _am_username }}"
         key: "{{ lookup('file',('%s/%s.pub'|format(
@@ -168,12 +183,12 @@
 
   - block:
 
-    - name: "ansible-user | Install the sudo."
+    - name: "ansible_user | Install the sudo."
       package:
         name: "sudo"
         state: latest
- 
-    - name: "ansible-user | Create a ansible in the '{{ _am_sudo_dir }}'."
+
+    - name: "ansible_user | Create a ansible in the '{{ _am_sudo_dir }}'."
       blockinfile:
         path: "{{ _am_sudo_dir }}/{{ _am_username }}"
         block: |
@@ -183,14 +198,14 @@
           {%  endfor %}
       when: _am_sudo_dir|d('')|is_dir == true
 
-    - name: "ansible-user | Checking user in sudoers."
+    - name: "ansible_user | Checking user in sudoers."
       shell: egrep "^%{{ _am_username }}[ \t]+" "{{ _am_sudofile }}"
       register: _am_issudoer
       ignore_errors: true
       when: not( _am_sudo_dir|d('')|is_dir == true )
 
-    - name: "ansible-user | Adding the entry '{{ _am_username }}' group."
-      lineinfile: 
+    - name: "ansible_user | Adding the entry '{{ _am_username }}' group."
+      lineinfile:
         dest: "{{ _am_sudofile }}"
         state: present
         backup: yes
