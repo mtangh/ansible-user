@@ -18,10 +18,16 @@ _au_play_cmd="$(type -P ansible-playbook)"
 _au_playopts=""
 _au_tmphosts="/tmp/.${BASE}-hosts-"$(mktemp -u XXXXXXXXXXXX)".txt"
 
-# Check command
+# Check the command
 [ -x "$_au_play_cmd" ] || {
   echo "$THIS: ERROR: 'ansible-playbook' not found." 1>&2
   exit 1
+}
+
+# Check the playbook
+[ -r "${CDIR}/${BASE}.yml" ] || {
+  echo "$THIS: ERROR: '${BASE}.yml' not found." 1>&2
+  exit 2
 }
 
 # Function: _usage
@@ -36,6 +42,8 @@ Usage: $THIS init [OPTIONS]
     rebuild ssh key
 
 "create" and "update" Options:
+  -i HOSTFILE, --inventory=HOSTFILE
+      use thia file to inventory
   -h HOSTNAME[:PORT], --host=HOSTNAME[:PORT]
       remote server hostname or ip address (and port)
   -u REMOTE_USER, --user=REMOTE_USER
@@ -93,6 +101,7 @@ _au_init() {
 
 # Function: create
 _au_create() {
+  local _au_hostfile="${ANSIBLE_USER_HOSTFILE}"
   local _au_hostname="${ANSIBLE_USER_SSH_HOST}"
   local _au_login_id="${ANSIBLE_USER_USERNAME:-$USER}"
   local _au_pkeyfile="${ANSIBLE_USER_KEY_FILE}"
@@ -102,12 +111,20 @@ _au_create() {
   while [ $# -gt 0 ]
   do
     case "$1" in
+    -i*|--inventory*)
+      if [[ $1 =~ ^-i ]] && [ -n "${1#*-i}" ]
+      then _au_hostfile="${1#*-h}"
+      elif [[ $1 =~ ^--inventory= ]] && [ -n "${1#*=}" ]
+      then _au_hostfile="${1#*=}"
+      else _au_hostfile="${2}"; shift
+      fi
+      ;;    
     -h*|--host*)
       if [[ $1 =~ ^-h ]] && [ -n "${1#*-h}" ]
-      then _au_hostname="${1#*-h}"
+      then _au_hostname="${_au_hostname:+$_au_hostname }${1#*-h}"
       elif [[ $1 =~ ^--host= ]] && [ -n "${1#*=}" ]
-      then _au_hostname="${1#*=}"
-      else _au_hostname="${2}"; shift
+      then _au_hostname="${_au_hostname:+$_au_hostname }${1#*=}"
+      else _au_hostname="${_au_hostname:+$_au_hostname }${2}"; shift
       fi
       ;;
     -u*|--user*)
@@ -130,6 +147,8 @@ _au_create() {
       else _au_time_out="${2}"; shift
       fi
       ;;
+    --auto)
+      _au_connmode=""
     --ssh)
       _au_connmode="ssh"
       ;;
@@ -142,12 +161,30 @@ _au_create() {
     shift
   done
   # Parameter validation
-  [ -n "${_au_hostname}" ] || {
-    echo "$THIS: ERROR: You must specify a HOSTNAME."
+  [ -n "${_au_hostfile}" -o -n "${_au_hostname}" ] || {
+    echo "$THIS: ERROR: You must specify HOSTFILE or HOSTNAME." 1>&2
     exit 1
   }
+  [ -z "${_au_hostfile}" ] ||
+  [ -r "${_au_hostfile}" ] || {
+    echo "$THIS: ERROR: Can not read a '${_au_hostfile}' file." 1>&2
+    exit 2
+  }
   # Crate a inventory
-  echo "${_au_hostname}" >"${_au_tmphosts}"
+  [ -n "${_au_hostfile}" ] || {
+    cat /dev/null 1>"${_au_tmphosts}" && {
+      echo "${_au_hostname}" |tr ',' ' ' |
+      while read _au_host_ent
+      do
+        [ -z "${_au_host_ent}" ] ||
+        echo "${_au_host_ent}"
+      done |sort -u 1>>"${_au_tmphosts}" 
+      unset _au_host_ent
+    } 2>/dev/null || {
+      echo "$THIS: ERROR: '${_au_tmphosts}': Permission denied." 1>&2
+      exit 3
+    }
+  }
   # Options
   _au_playopts=""
   _au_playopts="${_au_playopts:+$_au_playopts }-i $_au_tmphosts"
@@ -166,7 +203,9 @@ _au_create() {
     _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_become=yes"
     _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_gather_facts=yes"
   else
-    _au_playopts="${_au_playopts:+$_au_playopts }-C -vvvv"
+    _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_become=no"
+    _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_gather_facts=no"
+    _au_playopts="${_au_playopts:+$_au_playopts }-C -vvv"
   fi
   # end
   return 0

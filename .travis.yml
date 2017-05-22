@@ -31,7 +31,7 @@ script:
   # Create an authorized keys
   - bash ansible-user.sh init
   # Create a user
-  - export ANSIBLE_USER_DEBUGRUN=yes && bash ansible-user.sh create -h localhost
+  - export ANSIBLE_USER_DEBUGRUN=yes && bash ansible-user.sh create -h localhost --local
 
 #notifications:
 #  webhooks: https://galaxy.ansible.com/api/v1/notifications/
