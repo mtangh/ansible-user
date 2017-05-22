@@ -189,6 +189,7 @@
       package:
         name: "sudo"
         state: latest
+      when: am_user_using_gather_facts|d(true) == true
 
     - name: "ansible_user | Create a ansible in the '{{ _am_sudo_dir }}'."
       blockinfile:

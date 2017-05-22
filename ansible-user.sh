@@ -228,9 +228,17 @@ trap _cleanup SIGTERM SIGHUP SIGINT SIGQUIT
 trap _cleanup EXIT
 
 # RC
-[ -r "${CDIR}/${BASE}.rc" ] && {
- . "${CDIR}/${BASE}.rc"
-} 1>/dev/null 2>&1 || :
+for _au_rcnffile in \
+  "./${BASE}.rc" \
+  "${HOME}/.${BASE}.rc" \
+  "${CDIR}/${BASE}.rc"
+do
+  [ -r "_au_rcnffile" ] && {
+    . "${CDIR}/${BASE}.rc" &&
+    break
+  } || :
+done 1>/dev/null 2>&1
+unset _au_rcnffile
 
 # Command
 _au_exec_cmd="${1}"; shift
