@@ -7,7 +7,8 @@ THIS="${THIS:-ansible-user}"
 BASE="${THIS%%.*}"
 
 # Environment Variables
-ANSIBLE_USER_SSH_HOST="${ANSIBLE_USER_SSH_HOST:-}"
+ANSIBLE_USER_HOSTFILE="${ANSIBLE_USER_HOSTFILE:-}"
+ANSIBLE_USER_HOSTNAME="${ANSIBLE_USER_HOSTNAME:-}"
 ANSIBLE_USER_USERNAME="${ANSIBLE_USER_USERNAME:-}"
 ANSIBLE_USER_KEY_FILE="${ANSIBLE_USER_KEY_FILE:-}"
 ANSIBLE_USER_DEBUGRUN="${ANSIBLE_USER_DEBUGRUN:-}"
@@ -102,7 +103,7 @@ _au_init() {
 # Function: create
 _au_create() {
   local _au_hostfile="${ANSIBLE_USER_HOSTFILE}"
-  local _au_hostname="${ANSIBLE_USER_SSH_HOST}"
+  local _au_hostname="${ANSIBLE_USER_HOSTNAME}"
   local _au_login_id="${ANSIBLE_USER_USERNAME:-$USER}"
   local _au_pkeyfile="${ANSIBLE_USER_KEY_FILE}"
   local _au_connmode=""
