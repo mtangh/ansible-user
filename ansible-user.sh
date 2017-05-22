@@ -149,6 +149,7 @@ _au_create() {
       ;;
     --auto)
       _au_connmode=""
+      ;;
     --ssh)
       _au_connmode="ssh"
       ;;
