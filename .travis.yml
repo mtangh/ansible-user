@@ -26,6 +26,12 @@ install:
 script:
   # Basic role syntax check
   - ansible-playbook ansible-user.yml --syntax-check
+  # Syntax check
+  - bash -n ansible-user.sh
+  # Create an authorized keys
+  - export ANSIBLE_USER_DEBUGRUN=yes && bash anaible-user init
+  # Create a user
+  - export ANSIBLE_USER_DEBUGRUN=yes && bash anaible-user create -h localhost
 
 #notifications:
 #  webhooks: https://galaxy.ansible.com/api/v1/notifications/
