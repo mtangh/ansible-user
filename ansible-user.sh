@@ -152,15 +152,22 @@ _au_create() {
   _au_playopts=""
   _au_playopts="${_au_playopts:+$_au_playopts }-i $_au_tmphosts"
   _au_playopts="${_au_playopts:+$_au_playopts }${_au_connmode:+-c $_au_connmode}"
-  _au_playopts="${_au_playopts:+$_au_playopts }${_au_login_id:+-K -b -u $_au_login_id}"
-  [ -z "${_au_pkeyfile}" ] ||
-  _au_playopts="${_au_playopts:+$_au_playopts }--key-file=${_au_pkeyfile}"
-  [ -n "${_au_pkeyfile}" ] ||
-  _au_playopts="${_au_playopts:+$_au_playopts }-k"
+  _au_playopts="${_au_playopts:+$_au_playopts }${_au_login_id:+-u $_au_login_id}"
   _au_playopts="${_au_playopts:+$_au_playopts }${_au_time_out:+-T $_au_time_out}"
-  _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_become=yes"
-  _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_gather_facts=yes"
-  _au_playopts="${_au_playopts:+$_au_playopts }${ANSIBLE_USER_DEBUGRUN:+-C -vvvv}"
+  if [ -z "${ANSIBLE_USER_DEBUGRUN}" ]
+  then
+    if [ -z "${_au_pkeyfile}" ]
+    then
+      _au_playopts="${_au_playopts:+$_au_playopts }--key-file=${_au_pkeyfile}"
+    else
+      _au_playopts="${_au_playopts:+$_au_playopts }-k"
+    fi
+    _au_playopts="${_au_playopts:+$_au_playopts }-b -K"
+    _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_become=yes"
+    _au_playopts="${_au_playopts:+$_au_playopts }-e am_user_using_gather_facts=yes"
+  else
+    _au_playopts="${_au_playopts:+$_au_playopts }-C -vvvv"
+  fi
   # end
   return 0
 }
