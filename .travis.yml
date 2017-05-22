@@ -29,9 +29,9 @@ script:
   # Syntax check
   - bash -n ansible-user.sh
   # Create an authorized keys
-  - export ANSIBLE_USER_DEBUGRUN=yes && bash anaible-user.sh init
+  - export ANSIBLE_USER_DEBUGRUN=yes && bash ansible-user.sh init
   # Create a user
-  - export ANSIBLE_USER_DEBUGRUN=yes && bash anaible-user.sh create -h localhost
+  - export ANSIBLE_USER_DEBUGRUN=yes && bash ansible-user.sh create -h localhost
 
 #notifications:
 #  webhooks: https://galaxy.ansible.com/api/v1/notifications/
