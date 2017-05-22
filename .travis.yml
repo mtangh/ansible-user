@@ -29,7 +29,7 @@ script:
   # Syntax check
   - bash -n ansible-user.sh
   # Create an authorized keys
-  - export ANSIBLE_USER_DEBUGRUN=yes && bash ansible-user.sh init
+  - bash ansible-user.sh init
   # Create a user
   - export ANSIBLE_USER_DEBUGRUN=yes && bash ansible-user.sh create -h localhost
 
