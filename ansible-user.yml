@@ -200,13 +200,13 @@
         _am_sudodest: "{{ '%s/%s'|format(_am_sudo_dir,_am_username)
                           if _am_sudo_dir|d('')|is_dir
                           else _am_sudofile }}"
-        _am_sudo_new: "{{ 'yes'
-                          if _am_sudo_dir|is_dir else 'no' }}"
-        _am_sudo_usr: "{{ _am_sudof_st.stat.pw_name|d('root')
+        _am_sudo_usr: "{{ _am_sudof_st.stat.pw_name
                           if _am_sudof_st.stat|d(none) is not none
+                          and _am_sudof_st.stat.pw_name|d(none) is not none
                           else 'root' }}"
-        _am_sudo_grp: "{{ _am_sudof_st.stat.gr_name|d('wheel')
+        _am_sudo_grp: "{{ _am_sudof_st.stat.gr_name
                           if _am_sudof_st.stat|d(none) is not none
+                          and _am_sudof_st.stat.gr_name|d(none) is not none
                           else 'wheel' }}"
       when: _am_sudof_st.stat|d(none) is not none
 
@@ -214,13 +214,15 @@
       blockinfile:
         path: "{{ _am_sudodest }}"
         state: present
-        create: "{{ _am_sudo_new }}"
+        create: yes
         backup: yes
         owner: "{{ _am_sudo_usr }}"
         group: "{{ _am_sudo_grp }}"
         mode: "0640"
         validate: 'visudo -cf %s'
-        insertafter: "^(#|)[ ]*%wheel[ \t]+.*"
+        insertafter: "{{ '^(#|)[ ]*%wheel[ \t]+.*'
+                         if _am_sudodest == _am_sudofile
+                         else none }}"
         block: |
           %{{ _am_username }} ALL=(ALL) NOPASSWD: ALL
           {%  for _entry in _am_sudodefs|d([]) if _entry|d('')|string|trim|length > 0 %}
