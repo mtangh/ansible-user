@@ -202,10 +202,10 @@
                           else _am_sudofile }}"
         _am_sudo_new: "{{ 'yes'
                           if _am_sudo_dir|is_dir else 'no' }}"
-        _am_sudo_usr: "{{ _am_sudof_st.stat.owner|d('root')
+        _am_sudo_usr: "{{ _am_sudof_st.stat.pw_name|d('root')
                           if _am_sudof_st.stat|d(none) is not none
                           else 'root' }}"
-        _am_sudo_grp: "{{ _am_sudof_st.stat.group|d('wheel')
+        _am_sudo_grp: "{{ _am_sudof_st.stat.gr_name|d('wheel')
                           if _am_sudof_st.stat|d(none) is not none
                           else 'wheel' }}"
       when: _am_sudof_st.stat|d(none) is not none
