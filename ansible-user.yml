@@ -191,40 +191,44 @@
         state: latest
       when: am_user_using_gather_facts|d(true) == true
 
-    - name: "ansible_user | Create a ansible in the '{{ _am_sudo_dir }}'."
+    - name: "ansible_user | Stat '{{ _am_sudofile }}'."
+      stat: path="{{ _am_sudofile }}"
+      register: _am_sudof_st
+
+    - name: "ansible_user | Set sudoers."
+      set_fact:
+        _am_sudodest: "{{ '%s/%s'|format(_am_sudo_dir,_am_username)
+                          if _am_sudo_dir|d('')|is_dir
+                          else _am_sudofile }}"
+        _am_sudo_new: "{{ 'yes'
+                          if _am_sudo_dir|is_dir else 'no' }}"
+        _am_sudo_usr: "{{ _am_sudof_st.stat.owner|d('root')
+                          if _am_sudof_st.stat|d(none) is not none
+                          else 'root' }}"
+        _am_sudo_grp: "{{ _am_sudof_st.stat.group|d('wheel')
+                          if _am_sudof_st.stat|d(none) is not none
+                          else 'wheel' }}"
+      when: _am_sudof_st.stat|d(none) is not none
+
+    - name: "ansible_user | Update sudoers '{{ _am_sudodest|d('???') }}'."
       blockinfile:
-        path: "{{ _am_sudo_dir }}/{{ _am_username }}"
-        create: yes
+        path: "{{ _am_sudodest }}"
+        state: present
+        create: "{{ _am_sudo_new }}"
+        backup: yes
+        owner: "{{ _am_sudo_usr }}"
+        group: "{{ _am_sudo_grp }}"
+        mode: "0640"
+        validate: 'visudo -cf %s'
+        insertafter: "^(#|)[ ]*%wheel[ \t]+.*"
         block: |
           %{{ _am_username }} ALL=(ALL) NOPASSWD: ALL
           {%  for _entry in _am_sudodefs|d([]) if _entry|d('')|string|trim|length > 0 %}
           Defaults:%{{ _am_username }} {{ _entry }}
           {%  endfor %}
-      when: _am_sudo_dir|d('')|is_dir == true
+      when: _am_sudodest|d('')|string|trim|length > 0
 
-    - name: "ansible_user | Checking user in sudoers."
-      shell: egrep "^%{{ _am_username }}[ \t]+" "{{ _am_sudofile }}"
-      register: _am_issudoer
-      ignore_errors: true
-      when: not( _am_sudo_dir|d('')|is_dir == true )
-
-    - name: "ansible_user | Adding the entry '{{ _am_username }}' group."
-      lineinfile:
-        dest: "{{ _am_sudofile }}"
-        state: present
-        backup: yes
-        insertafter: "^(#|)[ ]*%wheel[ \t]+.*"
-        line: |
-          %{{ _am_username }} ALL=(ALL) NOPASSWD: ALL
-          {%  for _entry in _am_sudodefs|d([])
-                  if _entry|d('')|string|trim|length > 0 %}
-          Defaults:%{{ _am_username }} {{ _entry }}
-          {%  endfor %}
-      when: _am_issudoer|d(none) is not none
-            and _am_issudoer.rc|d(0) != 0
-            and (_am_lfresult|d(none) is none
-              or _am_lfresult|success == false)
-
+    when: _am_sudofile|d('')|string|trim|length > 0
     tags:
     - ansible-user-sudoers
 
