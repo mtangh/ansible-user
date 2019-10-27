@@ -1,10 +1,7 @@
-#!/bin/bash
-THIS="${0##*/}"
-CDIR=$([ -n "${0%/*}" ] && cd "${0%/*}" 2>/dev/null; pwd)
-
-# Name
-THIS="${THIS:-ansible-user}"
-BASE="${THIS%%.*}"
+#!/bin/bash -u
+THIS="${BASH_SOURCE##*/}"
+BASE="${THIS%.*}"
+CDIR=$([ -n "${BASH_SOURCE%/*}" ] && cd "${BASH_SOURCE%/*}" 2>/dev/null; pwd)
 
 # Environment Variables
 ANSIBLE_USER_HOSTFILE="${ANSIBLE_USER_HOSTFILE:-}"
@@ -17,7 +14,7 @@ ANSIBLE_USER_DEBUGRUN="${ANSIBLE_USER_DEBUGRUN:-}"
 _au_exec_cmd=""
 _au_play_cmd="$(type -P ansible-playbook)"
 _au_playopts=""
-_au_tmphosts="/tmp/.${BASE}-hosts-"$(mktemp -u XXXXXXXXXXXX)".txt"
+_au_tmphosts="${TMPDIR:-/tmp}/.${BASE}-hosts-$(mktemp -u XXXXXXXXXXXX).txt"
 
 # Check the command
 [ -x "$_au_play_cmd" ] || {
@@ -76,7 +73,7 @@ _au_init() {
   # Parse options
   while [ $# -gt 0 ]
   do
-    case "$1" in
+    case "${1:-}" in
     --force)
       _au_keyrenew="yes"
       ;;
@@ -111,7 +108,7 @@ _au_create() {
   # Parse options
   while [ $# -gt 0 ]
   do
-    case "$1" in
+    case "${1:-}" in
     -i*|--inventory*)
       if [[ $1 =~ ^-i ]] && [ -n "${1#*-i}" ]
       then _au_hostfile="${1#*-h}"
@@ -119,7 +116,7 @@ _au_create() {
       then _au_hostfile="${1#*=}"
       else _au_hostfile="${2}"; shift
       fi
-      ;;    
+      ;;
     -h*|--host*)
       if [[ $1 =~ ^-h ]] && [ -n "${1#*-h}" ]
       then _au_hostname="${_au_hostname:+$_au_hostname }${1#*-h}"
@@ -180,7 +177,7 @@ _au_create() {
       do
         [ -z "${_au_host_ent}" ] ||
         echo "${_au_host_ent}"
-      done |sort -u 1>>"${_au_tmphosts}" 
+      done |sort -u 1>>"${_au_tmphosts}"
       unset _au_host_ent
     } 2>/dev/null || {
       echo "$THIS: ERROR: '${_au_tmphosts}': Permission denied." 1>&2
@@ -241,7 +238,7 @@ done 1>/dev/null 2>&1
 unset _au_rcnffile
 
 # Command
-_au_exec_cmd="${1}"; shift
+_au_exec_cmd="${1:-}"; shift
 
 # Shell Options
 set -u
@@ -258,11 +255,11 @@ esac
 
 # debug
 [ -z "${ANSIBLE_USER_DEBUGRUN}" ] || {
-  echo $_au_play_cmd $_au_playopts "${CDIR}/${BASE}.yml"
+  echo "${_au_play_cmd}" $_au_playopts "${CDIR}/${BASE}.yml"
 }
 
 # play
-$_au_play_cmd $_au_playopts "${CDIR}/${BASE}.yml"
+"${_au_play_cmd}" $_au_playopts "${CDIR}/${BASE}.yml"
 
 # end
 exit $?

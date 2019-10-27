@@ -35,25 +35,25 @@
 
   - name: "ansible_user | Set facts."
     set_fact:
-      _am_username: "{{ am_user.name|d('ansible') }}"
+      _am_username: "{{ am_user.name|d('ansible',true) }}"
       _am_password: "{{ am_user.passwd|d(none) }}"
-      _am_user_uid: "{{ am_user.uid|d(61426) }}"
-      _am_userhome: "{{ am_user.home|d('/home/anaible') }}"
-      _am_shellcmd: "{{ am_user.shell|d('/bin/bash') }}"
-      _am_userdesc: "{{ am_user.comment|d('Ansible Management User') }}"
-      _am_etc_pswd: "{{ am_user_passwd_file|d('/etc/passwd') }}"
-      _am_key_path: "{{ am_user_sshkey_path|d(playbook_dir) }}"
-      _am_key_file: "{{ am_user_sshkey_basename|d('ansible-id_rsa') }}"
-      _am_keyrenew: "{% if am_user_sshkey_renew|d('')|string|trim|length > 0 %}{{
+      _am_user_uid: "{{ am_user.uid|d(61426,true) }}"
+      _am_userhome: "{{ am_user.home|d('/home/anaible',true) }}"
+      _am_shellcmd: "{{ am_user.shell|d('/bin/bash',true) }}"
+      _am_userdesc: "{{ am_user.comment|d('Ansible Management User',true) }}"
+      _am_etc_pswd: "{{ am_user_passwd_file|d('/etc/passwd',true) }}"
+      _am_key_path: "{{ am_user_sshkey_path|d(playbook_dir,true) }}"
+      _am_key_file: "{{ am_user_sshkey_basename|d('ansible-id_rsa',true) }}"
+      _am_keyrenew: "{% if am_user_sshkey_renew|d('',true)|string|trim|length > 0 %}{{
                       'yes'
                     }}{% else %}{{ '' }}{% endif %}"
-      _am_keygenop: "{% if am_user_sshkeygen_opts|d('')|string|trim|length > 0 %}{{
+      _am_keygenop: "{% if am_user_sshkeygen_opts|d('',true)|string|trim|length > 0 %}{{
                       am_user_sshkeygen_opts
                     }}{% else %}-t rsa -b 4096 -N ''{% endif %}"
-      _am_sudofile: "{% if am_user_sudo_sudoers_path|d('')|string|trim|length > 0 %}{{
+      _am_sudofile: "{% if am_user_sudo_sudoers_path|d('',true)|string|trim|length > 0 %}{{
                       am_user_sudo_sudoers_path
                     }}{% else %}/etc/sudoers{% endif %}"
-      _am_sudo_dir: "{% if am_user_sudo_sudoers_dir|d('')|string|trim|length > 0 %}{{
+      _am_sudo_dir: "{% if am_user_sudo_sudoers_dir|d('',true)|string|trim|length > 0 %}{{
                       am_user_sudo_sudoers_dir
                     }}{% else %}/etc/sudoers.d{% endif %}"
       _am_sudodefs: "{%- if am_user_sudo_defaults|d(none) is not none
